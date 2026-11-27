@@ -1,0 +1,6 @@
+{
+  "name": "宜蘭縣學校資料上傳平台",
+  "description": "連結宜蘭縣 Tmail 驗證與 Google 雲端硬碟整合的各校資料繳交與管理進度追蹤系統。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

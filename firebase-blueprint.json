@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Verified Yilan Tmail user profile and selected service school.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "schoolId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "schoolName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "schoolTownship": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "schoolLevel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "schoolId", "schoolName", "schoolTownship", "schoolLevel", "createdAt", "updatedAt"]
+    },
+    "UploadTopic": {
+      "title": "UploadTopic",
+      "description": "Top-level thematic group containing multiple sub-items for file submission.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 600 },
+        "active": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "active", "sortOrder", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "UploadItem": {
+      "title": "UploadItem",
+      "description": "Required or optional submission sub-item configured by the administrator under a topic.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "topicId": { "type": "string", "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]*$" },
+        "topicTitle": { "type": "string", "maxLength": 120 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 600 },
+        "acceptedFormats": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "maxSizeMB": { "type": "number" },
+        "deadline": { "type": "string", "maxLength": 40 },
+        "isRequired": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "acceptedFormats", "maxSizeMB", "deadline", "isRequired", "active", "sortOrder", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Latest school file submission record per school and item linked to Google Drive.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "schoolId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "schoolName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemTitle": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "fileSize": { "type": "number" },
+        "mimeType": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "driveFileId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "driveWebViewLink": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "sharedWithAdmin": { "type": "boolean" },
+        "uploadedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploadedByEmail": { "type": "string", "format": "email", "maxLength": 200 },
+        "uploadedByName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "status": { "type": "string", "enum": ["uploaded", "approved", "rejected"] },
+        "reviewNote": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "schoolId", "schoolName", "itemId", "itemTitle", "fileName", "fileSize", "mimeType", "driveFileId", "driveWebViewLink", "sharedWithAdmin", "uploadedByUid", "uploadedByEmail", "uploadedByName", "status", "reviewNote", "createdAt", "updatedAt"]
+    },
+    "UploadHistory": {
+      "title": "UploadHistory",
+      "description": "Immutable chronological log of every upload event with admin review status.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "submissionId": { "type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "schoolId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "schoolName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "topicTitle": { "type": "string", "maxLength": 120 },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemTitle": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "fileSize": { "type": "number" },
+        "mimeType": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "driveFileId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "driveWebViewLink": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "uploadedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploadedByEmail": { "type": "string", "format": "email", "maxLength": 200 },
+        "uploadedByName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "status": { "type": "string", "enum": ["uploaded", "approved", "rejected"] },
+        "reviewNote": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "submissionId", "schoolId", "schoolName", "topicTitle", "itemId", "itemTitle", "fileName", "fileSize", "mimeType", "driveFileId", "driveWebViewLink", "uploadedByUid", "uploadedByEmail", "uploadedByName", "status", "reviewNote", "createdAt", "updatedAt"]
+    },
+    "SchoolItemStatus": {
+      "title": "SchoolItemStatus",
+      "description": "Non-PII per-school per-item upload status visible to verified staff of the same school.",
+      "type": "object",
+      "properties": {
+        "schoolId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "status": { "type": "string", "enum": ["uploaded", "approved", "rejected"] },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "fileSize": { "type": "number" },
+        "driveFileId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "driveWebViewLink": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "uploadedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploadedByName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "reviewNote": { "type": "string", "maxLength": 400 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["schoolId", "itemId", "status", "fileName", "fileSize", "driveFileId", "driveWebViewLink", "uploadedByUid", "uploadedByName", "reviewNote", "updatedAt"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "Google Drive destination folder configuration managed by the administrator.",
+      "type": "object",
+      "properties": {
+        "adminEmail": { "type": "string", "format": "email", "maxLength": 200 },
+        "targetFolderId": { "type": "string", "maxLength": 128 },
+        "targetFolderName": { "type": "string", "maxLength": 160 },
+        "targetFolderUrl": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminEmail", "targetFolderId", "targetFolderName", "targetFolderUrl", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Verified Tmail user profile storing selected school."
+    },
+    "/uploadTopics/{topicId}": {
+      "schema": { "$ref": "#/entities/UploadTopic" },
+      "description": "Major thematic upload categories managed by the administrator."
+    },
+    "/uploadItems/{itemId}": {
+      "schema": { "$ref": "#/entities/UploadItem" },
+      "description": "Upload sub-item definitions managed by the administrator."
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/Submission" },
+      "description": "Latest submission audit records per school and item."
+    },
+    "/uploadHistory/{historyId}": {
+      "schema": { "$ref": "#/entities/UploadHistory" },
+      "description": "Chronological upload history records for admin tracking and review."
+    },
+    "/schoolProgress/{schoolId}/items/{itemId}": {
+      "schema": { "$ref": "#/entities/SchoolItemStatus" },
+      "description": "Per-school item status mirror without PII email fields for same-school collaboration."
+    },
+    "/appSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppSetting" },
+      "description": "Shared Google Drive target folder settings."
+    }
+  }
+}

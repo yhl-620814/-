@@ -1,0 +1,435 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 160 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedTmail() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('.*@tmail\\.ilc\\.edu\\.tw$');
+    }
+
+    function isAdmin() {
+      return isVerifiedTmail() && request.auth.token.email == 'yhl@tmail.ilc.edu.tw';
+    }
+
+    function isOwner(userId) {
+      return isVerifiedTmail() && request.auth.uid == userId;
+    }
+
+    function isSameSchool(schoolId) {
+      return isVerifiedTmail()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId == schoolId;
+    }
+
+    // Entity validation blueprints
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'schoolId', 'schoolName',
+          'schoolTownship', 'schoolLevel', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'schoolId', 'schoolName',
+          'schoolTownship', 'schoolLevel', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId && data.uid == request.auth.uid
+        && data.email is string && data.email.size() >= 5 && data.email.size() <= 200
+        && data.email == request.auth.token.email
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && isValidId(data.schoolId) && data.schoolId.size() <= 80
+        && data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 120
+        && data.schoolTownship is string && data.schoolTownship.size() >= 1 && data.schoolTownship.size() <= 40
+        && data.schoolLevel is string && data.schoolLevel.size() >= 1 && data.schoolLevel.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUploadTopic(data, topicId) {
+      return data.keys().hasAll([
+          'id', 'title', 'description', 'active', 'sortOrder', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'active', 'sortOrder', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == topicId && data.id.size() <= 80
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.description is string && data.description.size() <= 600
+        && data.active is bool
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000
+        && data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUploadItem(data, itemId) {
+      return data.keys().hasAll([
+          'id', 'title', 'description', 'acceptedFormats', 'maxSizeMB',
+          'deadline', 'isRequired', 'active', 'sortOrder', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'topicId', 'topicTitle', 'title', 'description', 'acceptedFormats', 'maxSizeMB',
+          'deadline', 'isRequired', 'active', 'sortOrder', 'createdByUid',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == itemId && data.id.size() <= 80
+        && (!('topicId' in data) || (data.topicId is string && data.topicId.size() <= 80 && data.topicId.matches('^[a-zA-Z0-9_\\-]*$')))
+        && (!('topicTitle' in data) || (data.topicTitle is string && data.topicTitle.size() <= 120))
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.description is string && data.description.size() <= 600
+        && data.acceptedFormats is string && data.acceptedFormats.size() >= 1 && data.acceptedFormats.size() <= 120
+        && data.maxSizeMB is number && data.maxSizeMB > 0 && data.maxSizeMB <= 100
+        && data.deadline is string && data.deadline.size() <= 40
+        && data.isRequired is bool
+        && data.active is bool
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 10000
+        && data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSubmission(data, submissionId) {
+      return data.keys().hasAll([
+          'id', 'schoolId', 'schoolName', 'itemId', 'itemTitle',
+          'fileName', 'fileSize', 'mimeType', 'driveFileId', 'driveWebViewLink',
+          'sharedWithAdmin', 'uploadedByUid', 'uploadedByEmail', 'uploadedByName',
+          'status', 'reviewNote', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'schoolId', 'schoolName', 'itemId', 'itemTitle',
+          'fileName', 'fileSize', 'mimeType', 'driveFileId', 'driveWebViewLink',
+          'sharedWithAdmin', 'uploadedByUid', 'uploadedByEmail', 'uploadedByName',
+          'status', 'reviewNote', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == submissionId
+        && isValidId(data.schoolId) && data.schoolId.size() <= 80
+        && data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 120
+        && isValidId(data.itemId) && data.itemId.size() <= 80
+        && data.itemTitle is string && data.itemTitle.size() >= 1 && data.itemTitle.size() <= 120
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255
+        && data.fileSize is number && data.fileSize >= 0 && data.fileSize <= 104857600
+        && data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 120
+        && data.driveFileId is string && data.driveFileId.size() >= 1 && data.driveFileId.size() <= 128
+        && data.driveWebViewLink is string && data.driveWebViewLink.size() >= 1 && data.driveWebViewLink.size() <= 500
+        && data.driveWebViewLink.matches('^https://.*')
+        && data.sharedWithAdmin is bool
+        && data.uploadedByUid is string && data.uploadedByUid.size() >= 1 && data.uploadedByUid.size() <= 128
+        && data.uploadedByEmail is string && data.uploadedByEmail.size() >= 5 && data.uploadedByEmail.size() <= 200
+        && data.uploadedByName is string && data.uploadedByName.size() >= 1 && data.uploadedByName.size() <= 120
+        && data.status in ['uploaded', 'approved', 'rejected']
+        && data.reviewNote is string && data.reviewNote.size() <= 400
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUploadHistory(data, historyId) {
+      return data.keys().hasAll([
+          'id', 'submissionId', 'schoolId', 'schoolName', 'topicTitle',
+          'itemId', 'itemTitle', 'fileName', 'fileSize', 'mimeType',
+          'driveFileId', 'driveWebViewLink', 'uploadedByUid', 'uploadedByEmail',
+          'uploadedByName', 'status', 'reviewNote', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'submissionId', 'schoolId', 'schoolName', 'topicTitle',
+          'itemId', 'itemTitle', 'fileName', 'fileSize', 'mimeType',
+          'driveFileId', 'driveWebViewLink', 'uploadedByUid', 'uploadedByEmail',
+          'uploadedByName', 'status', 'reviewNote', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id) && data.id == historyId
+        && isValidId(data.submissionId) && data.submissionId.size() <= 160
+        && isValidId(data.schoolId) && data.schoolId.size() <= 80
+        && data.schoolName is string && data.schoolName.size() >= 1 && data.schoolName.size() <= 120
+        && data.topicTitle is string && data.topicTitle.size() <= 120
+        && isValidId(data.itemId) && data.itemId.size() <= 80
+        && data.itemTitle is string && data.itemTitle.size() >= 1 && data.itemTitle.size() <= 120
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255
+        && data.fileSize is number && data.fileSize >= 0 && data.fileSize <= 104857600
+        && data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 120
+        && data.driveFileId is string && data.driveFileId.size() >= 1 && data.driveFileId.size() <= 128
+        && data.driveWebViewLink is string && data.driveWebViewLink.size() >= 1 && data.driveWebViewLink.size() <= 500
+        && data.driveWebViewLink.matches('^https://.*')
+        && data.uploadedByUid is string && data.uploadedByUid.size() >= 1 && data.uploadedByUid.size() <= 128
+        && data.uploadedByEmail is string && data.uploadedByEmail.size() >= 5 && data.uploadedByEmail.size() <= 200
+        && data.uploadedByName is string && data.uploadedByName.size() >= 1 && data.uploadedByName.size() <= 120
+        && data.status in ['uploaded', 'approved', 'rejected']
+        && data.reviewNote is string && data.reviewNote.size() <= 400
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSchoolItemStatus(data, schoolId, itemId) {
+      return data.keys().hasAll([
+          'schoolId', 'itemId', 'status', 'fileName', 'fileSize',
+          'driveFileId', 'driveWebViewLink', 'uploadedByUid', 'uploadedByName',
+          'reviewNote', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'schoolId', 'itemId', 'status', 'fileName', 'fileSize',
+          'driveFileId', 'driveWebViewLink', 'uploadedByUid', 'uploadedByName',
+          'reviewNote', 'updatedAt'
+        ])
+        && isValidId(data.schoolId) && data.schoolId == schoolId && data.schoolId.size() <= 80
+        && isValidId(data.itemId) && data.itemId == itemId && data.itemId.size() <= 80
+        && data.status in ['uploaded', 'approved', 'rejected']
+        && data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255
+        && data.fileSize is number && data.fileSize >= 0 && data.fileSize <= 104857600
+        && data.driveFileId is string && data.driveFileId.size() >= 1 && data.driveFileId.size() <= 128
+        && data.driveWebViewLink is string && data.driveWebViewLink.size() >= 1 && data.driveWebViewLink.size() <= 500
+        && data.driveWebViewLink.matches('^https://.*')
+        && data.uploadedByUid is string && data.uploadedByUid.size() >= 1 && data.uploadedByUid.size() <= 128
+        && data.uploadedByName is string && data.uploadedByName.size() >= 1 && data.uploadedByName.size() <= 120
+        && data.reviewNote is string && data.reviewNote.size() <= 400
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAppSetting(data) {
+      return data.keys().hasAll([
+          'adminEmail', 'targetFolderId', 'targetFolderName', 'targetFolderUrl', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'adminEmail', 'targetFolderId', 'targetFolderName', 'targetFolderUrl', 'updatedAt'
+        ])
+        && data.adminEmail is string && data.adminEmail.size() >= 5 && data.adminEmail.size() <= 200
+        && data.targetFolderId is string && data.targetFolderId.size() <= 128
+        && data.targetFolderName is string && data.targetFolderName.size() <= 160
+        && data.targetFolderUrl is string && data.targetFolderUrl.size() <= 500
+        && data.updatedAt is timestamp;
+    }
+
+    // 1. User profiles (PII isolated to owner or admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'schoolId', 'schoolName', 'schoolTownship', 'schoolLevel', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // 2. Major Upload Topics managed by administrator
+    match /uploadTopics/{topicId} {
+      allow get: if isValidId(topicId) && isVerifiedTmail();
+      allow list: if isVerifiedTmail();
+      allow create: if isValidId(topicId)
+        && isAdmin()
+        && isValidUploadTopic(incoming(), topicId)
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(topicId)
+        && isAdmin()
+        && isValidUploadTopic(incoming(), topicId)
+        && incoming().id == existing().id
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'description', 'active', 'sortOrder', 'updatedAt'
+        ]);
+      allow delete: if isValidId(topicId) && isAdmin();
+    }
+
+    // 3. Upload sub-items managed by administrator
+    match /uploadItems/{itemId} {
+      allow get: if isValidId(itemId) && isVerifiedTmail();
+      allow list: if isVerifiedTmail();
+      allow create: if isValidId(itemId)
+        && isAdmin()
+        && isValidUploadItem(incoming(), itemId)
+        && incoming().createdByUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (!('topicId' in incoming()) || incoming().topicId == '' || exists(/databases/$(database)/documents/uploadTopics/$(incoming().topicId)));
+      allow update: if isValidId(itemId)
+        && isAdmin()
+        && isValidUploadItem(incoming(), itemId)
+        && incoming().id == existing().id
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (!('topicId' in incoming()) || incoming().topicId == '' || exists(/databases/$(database)/documents/uploadTopics/$(incoming().topicId)))
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'topicId', 'topicTitle', 'title', 'description', 'acceptedFormats', 'maxSizeMB',
+          'deadline', 'isRequired', 'active', 'sortOrder', 'updatedAt'
+        ]);
+      allow delete: if isValidId(itemId) && isAdmin();
+    }
+
+    // 4. School submissions latest records
+    match /submissions/{submissionId} {
+      allow get: if isValidId(submissionId)
+        && (isAdmin() || (isVerifiedTmail() && (existing().uploadedByUid == request.auth.uid || isSameSchool(existing().schoolId))));
+      allow list: if isAdmin() || (isVerifiedTmail() && existing().uploadedByUid == request.auth.uid);
+      allow create: if isValidId(submissionId)
+        && isVerifiedTmail()
+        && isValidSubmission(incoming(), submissionId)
+        && incoming().uploadedByUid == request.auth.uid
+        && incoming().uploadedByEmail == request.auth.token.email
+        && incoming().status == 'uploaded'
+        && incoming().reviewNote == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isSameSchool(incoming().schoolId)
+        && exists(/databases/$(database)/documents/uploadItems/$(incoming().itemId));
+      allow update: if isValidId(submissionId)
+        && isValidSubmission(incoming(), submissionId)
+        && incoming().id == existing().id
+        && incoming().schoolId == existing().schoolId
+        && incoming().itemId == existing().itemId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'reviewNote', 'updatedAt', 'fileName', 'fileSize',
+              'mimeType', 'driveFileId', 'driveWebViewLink', 'sharedWithAdmin',
+              'uploadedByUid', 'uploadedByEmail', 'uploadedByName', 'itemTitle', 'schoolName'
+            ])
+          )
+          ||
+          (
+            isVerifiedTmail()
+            && existing().status != 'approved'
+            && isSameSchool(existing().schoolId)
+            && incoming().uploadedByUid == request.auth.uid
+            && incoming().uploadedByEmail == request.auth.token.email
+            && incoming().status == 'uploaded'
+            && incoming().reviewNote == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'itemTitle', 'fileName', 'fileSize', 'mimeType', 'driveFileId',
+              'driveWebViewLink', 'sharedWithAdmin', 'uploadedByUid',
+              'uploadedByEmail', 'uploadedByName', 'status', 'reviewNote', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(submissionId) && isAdmin();
+    }
+
+    // 5. Chronological upload history log
+    match /uploadHistory/{historyId} {
+      allow get: if isValidId(historyId)
+        && (isAdmin() || (isVerifiedTmail() && (existing().uploadedByUid == request.auth.uid || isSameSchool(existing().schoolId))));
+      allow list: if isAdmin() || (isVerifiedTmail() && existing().uploadedByUid == request.auth.uid);
+      allow create: if isValidId(historyId)
+        && isVerifiedTmail()
+        && isValidUploadHistory(incoming(), historyId)
+        && incoming().uploadedByUid == request.auth.uid
+        && incoming().uploadedByEmail == request.auth.token.email
+        && incoming().status == 'uploaded'
+        && incoming().reviewNote == ''
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isSameSchool(incoming().schoolId)
+        && exists(/databases/$(database)/documents/uploadItems/$(incoming().itemId));
+      allow update: if isValidId(historyId)
+        && isAdmin()
+        && isValidUploadHistory(incoming(), historyId)
+        && incoming().id == existing().id
+        && incoming().submissionId == existing().submissionId
+        && incoming().schoolId == existing().schoolId
+        && incoming().itemId == existing().itemId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'reviewNote', 'updatedAt'
+        ]);
+      allow delete: if isValidId(historyId) && isAdmin();
+    }
+
+    // 6. Non-PII per-school progress mirror (scoped by schoolId)
+    match /schoolProgress/{schoolId}/items/{itemId} {
+      allow get: if isValidId(schoolId) && isValidId(itemId) && (isAdmin() || isSameSchool(schoolId));
+      allow list: if isAdmin();
+      allow create: if isValidId(schoolId)
+        && isValidId(itemId)
+        && isVerifiedTmail()
+        && isValidSchoolItemStatus(incoming(), schoolId, itemId)
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isSameSchool(schoolId)
+            && incoming().uploadedByUid == request.auth.uid
+            && incoming().status == 'uploaded'
+            && incoming().reviewNote == ''
+            && exists(/databases/$(database)/documents/uploadItems/$(itemId))
+          )
+        );
+      allow update: if isValidId(schoolId)
+        && isValidId(itemId)
+        && isValidSchoolItemStatus(incoming(), schoolId, itemId)
+        && incoming().schoolId == existing().schoolId
+        && incoming().itemId == existing().itemId
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'fileName', 'fileSize', 'driveFileId', 'driveWebViewLink',
+              'uploadedByUid', 'uploadedByName', 'reviewNote', 'updatedAt'
+            ])
+          )
+          ||
+          (
+            isVerifiedTmail()
+            && existing().status != 'approved'
+            && isSameSchool(schoolId)
+            && incoming().uploadedByUid == request.auth.uid
+            && incoming().status == 'uploaded'
+            && incoming().reviewNote == ''
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'fileName', 'fileSize', 'driveFileId', 'driveWebViewLink',
+              'uploadedByUid', 'uploadedByName', 'reviewNote', 'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isValidId(schoolId) && isValidId(itemId) && isAdmin();
+    }
+
+    // 7. App settings for Google Drive destination folder
+    match /appSettings/{settingId} {
+      allow get: if isValidId(settingId) && isVerifiedTmail();
+      allow list: if isAdmin();
+      allow create, update: if isValidId(settingId)
+        && isAdmin()
+        && isValidAppSetting(incoming())
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+  }
+}
